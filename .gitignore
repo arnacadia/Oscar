@@ -99,3 +99,23 @@ ENV/
 
 # mypy
 .mypy_cache/
+
+# extra dependencies
+libgpuarray/
+
+# tools
+tools/bin
+tools/share
+tools/include
+tools/g2p
+tools/merlin
+
+# test outputs
+test/wav
+
+# Data directories
+corpus/
+
+# Model directories
+train/
+voices/

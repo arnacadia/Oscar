@@ -1,0 +1,22 @@
+backports.functools-lru-cache==1.6.1
+bandmat==0.7
+configobj==5.0.6
+cycler==0.10.0
+Cython==0.29.14
+kiwisolver==1.1.0
+lxml==4.4.1
+Mako==1.1.0
+MarkupSafe==1.1.1
+matplotlib==2.2.4
+numpy==1.16.5
+pyparsing==2.4.5
+python-dateutil==2.8.1
+pytz==2019.3
+regex==2019.11.1
+scikit-learn==0.20.4
+scipy==1.2.2
+six==1.13.0
+subprocess32==3.5.4
+Theano==1.0.4
+## NEEDS TO BE INSTALLED SEPARATELY
+#pygpu==0.7.6+20.g9cec614
