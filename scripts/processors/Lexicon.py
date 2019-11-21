@@ -28,8 +28,10 @@ from UtteranceProcessor import Element
 from util.LookupTable import LookupTable
 
 from naive.naive_util import readlist, writelist
+from util.ipa2sampa import ipa2sampa
 
 import util.NodeProcessors as NodeProcessors
+from configobj import ConfigObj
 
 class Lexicon(SUtteranceProcessor):
 
@@ -680,10 +682,225 @@ class PhoneticFeatureAdder(SUtteranceProcessor):
                 value = self.phone_table.lookup(phone, field=feature)
                 node.set(feature, value)
 
+from naive.naive_util import safetext
+class SimpleIcelandicG2P(Lexicon):
+
+    '''
+    rough sketch of processor for Blizzard 2015 schwa-deletion dicts -- they and LTS are already trained.
+    Replace parts with much simpler stuff.
+    Use something like Lexicon's get_oov_pronunciation but handle P2P lexicon rather than G2P
+
+    Omit actual lexicon part as the lexicon is created with G2P anyway.
+
+
+    '''
+    def __init__(self, processor_name='lexicon', target_nodes="//token", \
+                target_attribute='text', part_of_speech_attribute='pos', child_node_type='segment', output_attribute='pronunciation', \
+                class_attribute='token_class', word_classes=['word'], probable_pause_classes=['punctuation', c.TERMINAL], \
+                possible_pause_classes=['space'], \
+                dictionary='ice_g2p', backoff_pronunciation='a'):
+        super(SimpleIcelandicG2P, self).__init__()
+        self.processor_name = processor_name
+        self.target_nodes = target_nodes
+        self.target_attribute = target_attribute
+        self.output_attribute = output_attribute
+        self.dictionary=dictionary
+
+        self.backoff_pronunciation = backoff_pronunciation
+
+
+    def verify(self, voice_resources):
+        self.voice_resources = voice_resources
+        self.phone_delimiter = ' '
+
+            ## ^--- use this if lookup and LTS fail for whatever reason...
+
+        ## --- find and check required binaries ---
+        self.lts_tool = os.path.join(self.voice_resources.path[c.BIN], 'g2p.py')
+        tool_executable = os.access(self.lts_tool, os.X_OK)
+        if not tool_executable:
+            sys.exit('LTS tool %s doesn\'t exist or not executable'%(self.lts_tool ))
+
+
+#        ## Used if processor needs training:
+#        self.dictionary = self.config.get('dictionary', 'some_dictionary_name')
+
+#        ## Settings for LTS training:
+#        self.lts_ntrain = int(self.config.get('lts_ntrain', '0')) ## train on n words -- 0 means all.
+#        self.lts_gram_length = int(self.config.get('lts_gram_length', '3')) # 1: context independent graphones
+#        self.max_graphone_letters = int(self.config.get('max_graphone_letters', '2'))
+#        self.max_graphone_phones = int(self.config.get('max_graphone_phones', '2'))
+
+
+        ## Try loading model:  # similar to acoustic model code--refactor and put this in UtteranceProcessor?
+                               # Specific stuff would be the names of component of trained model.
+        self.trained = True
+        self.model_dir = os.path.join(self.get_location())
+
+        if not os.path.isdir(self.model_dir):
+            self.trained = False
+
+        ## verify all the parts needed are present: if the model files exists, count it as trained:
+        self.lexicon_fname = os.path.join(self.model_dir, 'lexicon.txt')
+        self.lts_fname = os.path.join(self.model_dir, 'lts.model')
+#        self.phoneset_fname = os.path.join(self.model_dir, 'phones.table')
+#        self.onsets_fname = os.path.join(self.model_dir, 'onsets.txt')
+#        self.letter_fname = os.path.join(self.model_dir, 'letter.names')
+
+        complete = True
+        for component in [self.lts_fname]:
+            if not os.path.isfile(component):
+                complete = False
+                self.trained = False
+
+        if not self.trained:
+            self.do_training(None, None)
+        self.load_lexicon() # populate self.entries
+
+            ## lts_fname used directly in system call -- no load necessary
+
+        ## TODO -- add custom entries from config file??
+
+        ## Add locations for sequitur g2p to pythonpath:
+        tooldir = os.path.join(self.voice_resources.path[c.BIN], '..')
+        sitepackages_dir = glob.glob(tooldir + '/lib*/python*/site-packages')  ## lib vs lib64?
+        assert len(sitepackages_dir) > 0
+        sitepackages_dir = sitepackages_dir[0]
+
+        ## Prepend this to relevant system calls -- using sequitur via python
+        ## would obviously be a lot neater.
+        self.g2p_path = 'export PYTHONPATH=%s:%s ; '%(sitepackages_dir, os.path.join(tooldir, 'g2p'))
+
+
+    def load_lexicon(self):
+        ## assume one entry per head word -- take first if multiple
+        assert os.path.isfile(self.lexicon_fname)
+        items = readlist(self.lexicon_fname)
+        self.entries = {}
+        self.phone_inventory = []
+        for item in items:
+            (head,pron) = item.split('\t')
+            if head not in self.entries:
+                self.entries[head] = pron
+                phones = pron.split(' ')
+                for phone in phones:
+                    if phone not in self.phone_inventory:
+                        self.phone_inventory.append(phone)
+
+    def process_utterance(self, utt):
+
+        for node in utt.xpath(self.target_nodes):
+            assert node.has_attribute(self.target_attribute)
+            word = node.get(self.target_attribute)
+
+            word = [safetext(lett.lower()) for lett in word]
+            current_class = node.attrib[self.class_attribute]
+            phones_from = None
+            if current_class in self.word_classes:
+                word = node.attrib[self.target_attribute]
+                if word.lower() in self.entries:
+                    phones_from = 'lex'
+                    pronunciation = self.entries[word.lower()]
+                else:
+                    pronunciation = self.get_oov_pronunciation(word)
+                    phones_from = 'lts'
+                    if pronunciation == None:
+                        pronunciation = self.backoff_pronunciation
+                        phones_from = 'default'
+            elif current_class in self.probable_pause_classes:
+                pronunciation = c.PROB_PAUSE # [c.PROB_PAUSE]
+                child = Element('segment')
+                child.set('pronunciation', pronunciation)
+                node.add_child(child)
+                continue
+            elif current_class in self.possible_pause_classes:
+                pronunciation = c.POSS_PAUSE # [c.POSS_PAUSE]
+                child = Element('segment')
+                child.set('pronunciation', pronunciation)
+                node.add_child(child)
+                continue
+            pronunciation = unicodedata.normalize('NFKD', pronunciation.encode('utf8').decode('utf8'))
+            phones = [ipa2sampa[x.encode('utf8')] if x.encode('utf8') in ipa2sampa.keys() else x for x in pronunciation.split(' ')]
+            for phone in phones:
+                child = Element('segment')
+                child.set('pronunciation', phone)
+                if phones_from:
+                    child.set('phones_from', phones_from)
+                node.add_child(child)
+
+
+
+    def do_training(self, corpus, text_corpus):
+        dict_location = os.path.join(self.voice_resources.path[c.LANG], 'labelled_corpora', self.dictionary)
+        print(dict_location)
+        assert os.path.isfile(os.path.join(dict_location, "lexicon.txt"))
+        shutil.copy(os.path.join(dict_location, "lexicon.txt"), self.lexicon_fname)
+        assert os.path.isfile(os.path.join(dict_location, "lts.model"))
+        shutil.copy(os.path.join(dict_location, "lts.model"), self.lts_fname)
+        print 'no training currently required -- lex and lts should be prepared externally'
+
+    def get_oov_pronunciation(self, word):
+
+#        print word
+#        word = self.strip_space_and_punc(word)
+#        print word
+        # letters = word.split(self.phone_delimiter)
+#        print letters
+#        print ' '.join(letters)
+        ## input to P2P apply is word + pron:
+        word = word.lower() #+ ' ' + ' '.join(letters)
+
+        escaped_input = "'" + word + "'"
+
+
+        comm = '%s echo %s | %s  --model %s --encoding utf8 --apply -'%(self.g2p_path,  \
+                                                    escaped_input, self.lts_tool, self.lts_fname)
+#        print comm
+#        print
+#        print
+
+        try:
+            pronun = subprocess.check_output(comm, shell=True, stderr=subprocess.STDOUT)
+            if 'failed to convert' in pronun:
+                print comm
+                print 'WARNING: couldnt run LTS for %s'%(word)
+                return None
+        except:
+            print("Exception!!")
+            return None
+
+        ## remove the 'stack usage' output line -- its position varies:
+        pronun = pronun.strip(' \n').split('\n')
+
+        ## form of returned pronuncations is different when warnings are given:
+
+        ## ]'stack usage:  415', 'androcles\ta1 n d r @0 k @0 lw z'] ... becomes:
+
+        ## ['/afs/inf.ed.ac.uk/group/cstr/projects/blizzard_entries/blizzard2015/tool/Ossian//tools/bin/g2p.py:37: DeprecationWarning: the sets module is deprecated', '  import math, sets, sys', 'stack usage:  415', 'androcles\ta1 n d r @0 k @0 lw z']
+
+        ## deal with this, but TODO: work out long-term solution --
+        assert len(pronun) >= 2,str(pronun)     ## ==   -->   >=     to handle extra warnings
+        for line in pronun:
+            line = line.decode('utf8')
+            if 'stack usage' not in line and word in line:   ## word in line   added to reject warnings
+                pronun = line
+
+        (outword, pronun) = re.split('\s+', pronun, maxsplit=1)
+        outword = unicodedata.normalize('NFKD', outword)
+#        word = unicodedata.normalize('NFKD', word.decode('utf-8'))
+        if type(word) == str:
+            word = word.decode('utf-8')
+        word = unicodedata.normalize('NFKD', word)
+
+
+        assert outword == word,'don\'t match: %s and %s'%(outword, word)
+                    ## sequitur seems to return decomposed forms
+        # print word + ' -->  ' + pronun
+        return pronun
 
 
 from util.indian2latin import latinise_indian_script_string
-from naive.naive_util import safetext
+
 class SimpleIndicG2P(Lexicon):
 
     '''
