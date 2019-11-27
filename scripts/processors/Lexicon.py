@@ -787,6 +787,29 @@ class SimpleIcelandicG2P(Lexicon):
                     if phone not in self.phone_inventory:
                         self.phone_inventory.append(phone)
 
+
+    def convert_lexicon(self, files):
+        
+        print '     convert lexicon...'
+        entries = {}
+        seen_tags = {}  ## for reporting
+        for line in fileinput.input(files, openhook=fileinput.hook_encoded("utf8")):
+            line = line.strip(' \n')
+            (headword, pronun) = line.split('\t')
+            phones = [ipa2sampa[x.encode('utf8')] if x.encode('utf8') in ipa2sampa.keys() else x for x in pronun.split(' ')]
+            
+            entries[headword] = ' '.join(phones)
+        if "#0" not in entries.keys():
+            # Add silence phone if not already present
+            entries["#0"] = "sil"
+        f = codecs.open(self.lexicon_fname, 'w', encoding='utf8')
+        for head_word, pron in sorted(entries.items(), key=lambda x: x[0]):
+            f.write('%s\t%s\n'%(head_word, pron))
+        f.close() 
+    
+        self.entries = entries
+
+
     def process_utterance(self, utt):
 
         for node in utt.xpath(self.target_nodes):
@@ -819,8 +842,10 @@ class SimpleIcelandicG2P(Lexicon):
                 child.set('pronunciation', pronunciation)
                 node.add_child(child)
                 continue
-            pronunciation = unicodedata.normalize('NFKD', pronunciation.encode('utf8').decode('utf8'))
-            phones = [ipa2sampa[x.encode('utf8')] if x.encode('utf8') in ipa2sampa.keys() else x for x in pronunciation.split(' ')]
+            if phones_from == 'lts':
+                phones = [ipa2sampa[x.encode('utf8')] if x.encode('utf8') in ipa2sampa.keys() else x for x in pronunciation.split(' ')]
+            else:
+                phones = [x for x in pronunciation.split(' ')]
             for phone in phones:
                 child = Element('segment')
                 child.set('pronunciation', phone)
@@ -834,7 +859,7 @@ class SimpleIcelandicG2P(Lexicon):
         dict_location = os.path.join(self.voice_resources.path[c.LANG], 'labelled_corpora', self.dictionary)
         print(dict_location)
         assert os.path.isfile(os.path.join(dict_location, "lexicon.txt"))
-        shutil.copy(os.path.join(dict_location, "lexicon.txt"), self.lexicon_fname)
+        self.convert_lexicon(os.path.join(dict_location, "lexicon.txt"))
         assert os.path.isfile(os.path.join(dict_location, "lts.model"))
         shutil.copy(os.path.join(dict_location, "lts.model"), self.lts_fname)
         print 'no training currently required -- lex and lts should be prepared externally'
