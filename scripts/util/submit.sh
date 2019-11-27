@@ -18,7 +18,7 @@ gpu_id=$(python $THIS_DIR/gpu_lock.py --id-to-hog)
 
 if [ $gpu_id -gt -1 ]; then
     #THEANO_FLAGS="cuda.root=/opt/cuda-5.0.35,mode=FAST_RUN,device=gpu$gpu_id,floatX=float32"
-    THEANO_FLAGS="cuda.root=/opt/6.5.19,mode=FAST_RUN,device=gpu$gpu_id,floatX=float32,on_unused_input=ignore"
+    THEANO_FLAGS="cuda.root=/usr/local/cuda-10.1/bin,mode=FAST_RUN,device=cuda$gpu_id,floatX=float32,on_unused_input=ignore,dnn.include_path=/usr/local/cuda/include,dnn.library_path=/usr/local/cuda/lib64"
     export THEANO_FLAGS
     
     $PYTHON $@

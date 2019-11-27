@@ -41,6 +41,11 @@ python setup.py build
 python setup.py install
 ```
 
+# GPU Configuration
+
+If you intend to use CUDA GPUs for training, you must edit the line in `scripts/util/submit.sh`  where the `THEANO_FLAGS` variable is assigned. 
+You must set `cuda.root` to point to the `bin` directory of your CUDA installation, as well as setting 
+the `dnn.include_path` and `dnn.library_path` to point to your CUDA installation's `include` and `lib/lib64` directories, respectively.
 # Getting the tools
 
 
