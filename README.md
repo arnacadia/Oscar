@@ -192,7 +192,55 @@ In particular, you will want to increase training_epochs to train voices on larg
 You will also want to experiment with learning_rate, batch_size, and network architecture (hidden_layer_size, hidden_layer_type). Currently, Ossian only supports feed-forward networks.
 
 
+# DNN-based Icelandic recipe with pronunciation dictionary
 
+In order to use the ```is_lex_01_nn``` recipe you first need to prepare the data. the folder ```$OSSIAN/corpus/is``` must contain the following files and folders:
+- labelled_corpora
+  - ice_g2p
+    - lexicon.txt
+    - lts.model
+- speakers
+  - \<your speaker name>
+    - wav
+      - \<id>.wav
+    - txt
+      - \<id>.txt
+
+
+Here lexicon.txt is a pronunciation dictionary and lts.model is a Sequitur g2p model trained from that lexicon.
+The entries in lexicon.txt are expected to be structured like [this one](http://malfong.is/?pg=framb_talgr), having two tab-separated columns: word and pronunciation, where the pronunciation is a space-separated list of IPA symbols.
+
+Note that since there is no index file, corresponding wav and txt files under speaker must have identical filenames, excluding the extension.
+
+Once the data is set up, you can run the following commands to train your voice:
+
+First you specify your speaker:
+```
+export SPEAKER_NAME=<Your speaker name>
+```
+Then align the data, and train the feature representation
+```
+cd $OSSIAN
+python ./scripts/train.py -s ${SPEAKER_NAME} -l is is_lex_01_nn
+```
+Next train the duration model using Merlin
+```
+./scripts/util/submit.sh ./tools/merlin/src/run_merlin.py $OSSIAN/train/is/speakers/${SPEAKER_NAME}/is_lex_01_nn/processors/duration_predictor/config.cfg
+```
+Acoustic model
+```
+./scripts/util/submit.sh ./tools/merlin/src/run_merlin.py $OSSIAN/train/is/speakers/${SPEAKER_NAME}/is_lex_01_nn/processors/acoustic_predictor/config.cfg
+```
+Finally move the duration and acoustic model to Ossian-readable format
+```
+./scripts/util/submit.sh ./scripts/util/store_merlin_model.py $OSSIAN/train/is/speakers/${SPEAKER_NAME}/is_lex_01_nn/processors/duration_predictor/config.cfg $OSSIAN/voices/is/${SPEAKER_NAME}/is_lex_01_nn/processors/duration_predictor
+./scripts/util/submit.sh ./scripts/util/store_merlin_model.py $OSSIAN/train/is/speakers/${SPEAKER_NAME}/is_lex_01_nn/processors/acoustic_predictor/config.cfg $OSSIAN/voices/is/${SPEAKER_NAME}/is_lex_01_nn/processors/acoustic_predictor
+```
+If all steps were successful, we can now synthesize speech!
+```
+mkdir $OSSIAN/test/wav/
+python ./scripts/speak.py -l is -s margret -o ./test/wav/is_test.wav is_lex_01_nn ./test/txt/icelandic.txt
+```
 
 
 # Other recipes
