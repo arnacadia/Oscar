@@ -1,10 +1,10 @@
-#!/bin/bash 
+#!/bin/bash
 
 ### This installs everything needed for the naive recipe:
 BASIC=1
 
 ### The following are only needed to train letter-to-sound rules, and for the gold standard english systems:
-SEQUITUR=0 
+SEQUITUR=1
 STANFORD=0
 
 
@@ -26,7 +26,7 @@ if [ $BASIC == 1 ] ; then
         echo "usage: setup_tools.sh \$HTK_USERNAME \$HTK_PASSWORD";
         exit 1 ;
     fi
-    
+
 
     ## setup script based on http://homepages.inf.ed.ac.uk/owatts/ossian/html/setting_up.html
     HTK_USERNAME=$1
@@ -40,7 +40,7 @@ if [ $BASIC == 1 ] ; then
     git clone https://github.com/CSTR-Edinburgh/merlin.git
     cd merlin
     ## reset to this specific version, which I have tested, must check later versions:--
-    git reset --hard 8aed278  
+    git reset --hard 8aed278
 
     ## Ossian will use Merlin's copy of World, instead of its own as previously:-
     cd $OSSIAN/tools/merlin/tools/WORLD/
@@ -108,7 +108,7 @@ if [ $BASIC == 1 ] ; then
         mv ./bin/delta/Makefile ./bin/delta/Makefile.BAK
         sed 's/CC = gcc/CC = clang/' ./bin/delta/Makefile.BAK > ./bin/delta/Makefile     ## (see http://sourceforge.net/p/sp-tk/bugs/68/)
     fi
-    
+
     make
     make install
 
@@ -126,14 +126,14 @@ fi
 #     make -f makefile analysis
 #     make -f makefile synth
 #     cp build/analysis $OSSIAN/tools/bin/analysis
-#     cp build/synth $OSSIAN/tools/bin/synth  
+#     cp build/synth $OSSIAN/tools/bin/synth
 # fi
 
 
 
 if [ $SEQUITUR == 1 ] ; then
 
-    rm -rf $OSSIAN/tools/g2p/ 
+    rm -rf $OSSIAN/tools/g2p/
 
     # Sequitur G2P
     cd $OSSIAN/tools/
@@ -147,7 +147,7 @@ if [ $SEQUITUR == 1 ] ; then
         #
         # In file included from ./Multigram.hh:33:
         # ./UnorderedMap.hh:26:10: fatal error: 'tr1/unordered_map' file not found
-        # #include <tr1/unordered_map>     
+        # #include <tr1/unordered_map>
         echo 'Apply patch to sequitur for compilation on Mac OS...'
         patch -p1 -d . < ../patch/sequitur_compilation.patch
     fi

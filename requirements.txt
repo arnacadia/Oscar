@@ -18,5 +18,7 @@ scipy==1.2.2
 six==1.13.0
 subprocess32==3.5.4
 Theano==1.0.4
+tokenizer==1.4.1
+numpy==1.16.5
 ## NEEDS TO BE INSTALLED SEPARATELY
 #pygpu==0.7.6+20.g9cec614
