@@ -1,5 +1,6 @@
 # NEW:
-A recent progress report on the TTS project available here: https://docs.google.com/presentation/d/1RYL7nzjKgpSXQVwUc5ogaAURNmGGr9nkceVLcmxOkig/edit?usp=sharing
+A recent progress report on the TTS project available here: https://docs.google.com/presentation/d/124F6jNHTENgbJLMRyHEF0G95vrYrUsg8zfyPyuJg1UE/edit?usp=sharing 
+Synthesized demos on the last slide.
 
 # Ossian + DNN demo
 
