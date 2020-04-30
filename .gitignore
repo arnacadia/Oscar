@@ -122,6 +122,7 @@ voices/
 
 # Slurm stuff
 *.out
+sbatch_scripts/
 
 # vscode
 .vscode/

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ### This installs everything needed for the naive recipe:
-BASIC=1
+BASIC=0
 
 ### The following are only needed to train letter-to-sound rules, and for the gold standard english systems:
 SEQUITUR=1
@@ -9,8 +9,6 @@ STANFORD=0
 
 
 # TODO: check wget is available
-
-
 
 ## Location of this script:-
 SCRIPTPATH=$( cd $(dirname $0) ; pwd -P )
